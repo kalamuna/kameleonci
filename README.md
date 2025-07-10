@@ -4,20 +4,18 @@ A versatile GitHub Actions workflow for deploying Drupal projects to multiple ho
 
 ## Quick Install
 
+Run these commands in the root directory of your Drupal project's Git repository:
+
 ```bash
-# Option 1: Download and run
 curl -O https://raw.githubusercontent.com/kalamuna/kameleon/main/install.sh
 chmod +x install.sh
 ./install.sh
-
-# Option 2: Direct execution
-curl -s https://raw.githubusercontent.com/kalamuna/kameleon/main/install.sh | bash
 ```
 
 The installation script will:
 - Create the necessary `.github/workflows` directory
-- Install the workflow file
-- Optionally download `.gitignore-deploy` if you need to build assets in GitHub Actions
+- Install the workflow file (with confirmation if it already exists)
+- Optionally download `.gitignore-deploy` if you need to build assets in GitHub Actions (with confirmation if it already exists)
 - Guide you through the next steps
 
 > **Note**: The `.gitignore-deploy` file is only needed if you're building assets (Composer/npm) in GitHub Actions. The installer will ask if you need this feature
@@ -34,8 +32,10 @@ The installation script will:
 
 ## Setup
 
-1. Copy `kameleon.yml` to your repository at `.github/workflows/kameleon.yml`
-2. Configure the required repository variables and secrets (see Configuration section below)
+1. Run the installation script (see Quick Install section above)
+2. Configure the required repository variables and secrets in your GitHub repository:
+   - Go to your repository's Settings → Secrets and variables → Actions
+   - Add the required variables and secrets listed below
 3. Push your code and let Kameleon handle the deployment!
 
 ## Configuration
