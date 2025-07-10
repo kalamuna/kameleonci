@@ -1,4 +1,4 @@
-# Kameleon - Universal Hosting Platform Deployment
+# KameleonCI - Universal Hosting Platform Deployment
 #
 # Required Repository Variables:
 # - DEPLOY_REPO: Git URL of your hosting provider's repository
@@ -12,9 +12,9 @@
 # - PANTHEON_MACHINE_TOKEN: (Pantheon only) Terminus machine token
 #
 # For detailed configuration and usage instructions, see:
-# https://github.com/kalamuna/kameleon
+# https://github.com/kalamuna/kameleonci
 
-name: Kameleon Deploy
+name: KameleonCI Deploy
 permissions:
   contents: read
   pull-requests: write

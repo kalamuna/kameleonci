@@ -1,11 +1,11 @@
-# Contributing to Kameleon
+# Contributing to KameleonCI
 
-Thank you for considering contributing to Kameleon! We welcome contributions from the community to help make this GitHub Actions workflow even better.
+Thank you for considering contributing to KameleonCI! We welcome contributions from the community to help make this GitHub Actions workflow even better.
 
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/your-username/kameleon.git`
+2. Clone your fork: `git clone https://github.com/your-username/kameleonci.git`
 3. Create a new branch for your feature: `git checkout -b feature/your-feature-name`
 
 ## Making Changes

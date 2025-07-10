@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🦎 Installing Kameleon Deployment Workflow..."
+echo "🦎 Installing KameleonCI Deployment Workflow..."
 
 # Function to download a file with overwrite confirmation
 download_file() {
@@ -34,7 +34,7 @@ mkdir -p .github/workflows
 
 # Download the workflow file
 download_file \
-    "https://raw.githubusercontent.com/kalamuna/kameleon/main/.github/workflows/kameleon.yml" \
+    "https://raw.githubusercontent.com/kalamuna/kameleonci/main/.github/workflows/kameleon.yml" \
     ".github/workflows/kameleon.yml" \
     "workflow file"
 
@@ -53,7 +53,7 @@ read -r needs_build
 
 if [[ $needs_build =~ ^[Yy]$ ]]; then
     download_file \
-        "https://raw.githubusercontent.com/kalamuna/kameleon/main/.gitignore-deploy" \
+        "https://raw.githubusercontent.com/kalamuna/kameleonci/main/.gitignore-deploy" \
         ".gitignore-deploy" \
         ".gitignore-deploy file"
     echo "ℹ️  Review and customize .gitignore-deploy for your project's build artifacts"
@@ -87,4 +87,4 @@ else
     echo "2. Push your code to trigger the workflow"
 fi
 echo ""
-echo "📚 Full documentation: https://github.com/kalamuna/kameleon"
+echo "📚 Full documentation: https://github.com/kalamuna/kameleonci"

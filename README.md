@@ -1,4 +1,4 @@
-# 🦎 Kameleon
+# 🦎 KameleonCI
 
 A versatile GitHub Actions workflow for deploying Drupal projects to multiple hosting platforms.
 
@@ -7,7 +7,7 @@ A versatile GitHub Actions workflow for deploying Drupal projects to multiple ho
 Run these commands in the root directory of your Drupal project's Git repository:
 
 ```bash
-curl -O https://raw.githubusercontent.com/kalamuna/kameleon/main/install.sh
+curl -O https://raw.githubusercontent.com/kalamuna/kameleonci/main/install.sh
 chmod +x install.sh
 ./install.sh
 ```
@@ -36,7 +36,7 @@ The installation script will:
 2. Configure the required repository variables and secrets in your GitHub repository:
    - Go to your repository's Settings → Secrets and variables → Actions
    - Add the required variables and secrets listed below
-3. Push your code and let Kameleon handle the deployment!
+3. Push your code and let KameleonCI handle the deployment!
 
 ## Configuration
 
