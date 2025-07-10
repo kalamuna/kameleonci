@@ -34,8 +34,8 @@ mkdir -p .github/workflows
 
 # Download the workflow file
 download_file \
-    "https://raw.githubusercontent.com/kalamuna/kameleonci/main/.github/workflows/kameleon.yml" \
-    ".github/workflows/kameleon.yml" \
+    "https://raw.githubusercontent.com/kalamuna/kameleonci/main/.github/workflows/kameleonci.yml" \
+    ".github/workflows/kameleonci.yml" \
     "workflow file"
 
 # Ask about build process
