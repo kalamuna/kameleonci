@@ -1,0 +1,430 @@
+# Kameleon - Universal Hosting Platform Deployment
+#
+# Required Repository Variables:
+# - DEPLOY_REPO: Git URL of your hosting provider's repository
+# - GIT_NAME:    Git user name for commits during deployment
+# - GIT_EMAIL:   Git user email for commits during deployment
+# - SSH_CONFIG:  SSH configuration (see README.md for examples)
+# - PANTHEON_SITE_NAME: (Pantheon only) Your Pantheon site name
+#
+# Required Repository Secrets:
+# - SSH_KEY: SSH private key for Git operations
+# - PANTHEON_MACHINE_TOKEN: (Pantheon only) Terminus machine token
+#
+# For detailed configuration and usage instructions, see:
+# https://github.com/kalamuna/kameleon
+
+name: Kameleon Deploy
+permissions:
+  contents: read
+  pull-requests: write
+# When a PR is reopened with new code, this triggers two actions runs.  This will keep them from interfering with each other.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# --- Workflow Triggers ---
+on:
+  push:
+    branches:
+      - 'main'
+      - 'master'
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches:
+      - 'main'
+      - 'master'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+      # --- Site-Specific Overrides (Optional) ---
+      # These can be used to override host defaults for this site.
+      - name: Define Overrides
+        id: overrides
+        run: |
+          HOST=''
+          HOST_DOCROOT=''
+          CI_COMPOSER=''
+          CI_NODE=''
+          TERMINUS=''
+          REMOTE_PRIMARY=''
+          MULTIDEV=''
+          NODE_TESTS=''
+          # Don't edit below this line
+          echo HOST=$HOST >> $GITHUB_OUTPUT && echo HOST_DOCROOT=$HOST_DOCROOT >> $GITHUB_OUTPUT && echo CI_COMPOSER=$CI_COMPOSER >> $GITHUB_OUTPUT
+          echo TERMINUS=$TERMINUS >> $GITHUB_OUTPUT && echo REMOTE_PRIMARY=$REMOTE_PRIMARY >> $GITHUB_OUTPUT && echo MULTIDEV=$MULTIDEV >> $GITHUB_OUTPUT && echo NODE_TESTS=$NODE_TESTS >> $GITHUB_OUTPUT
+
+      # --- Safety Check: Ensure DEPLOY_REPO is Set ---
+      - name: Verify DEPLOY_REPO
+        if: "${{ vars.DEPLOY_REPO == '' }}"
+        run: echo "Add a DEPLOY_REPO Repository Variable at https://github.com/$GITHUB_REPOSITORY/settings/variables/actions with the destination repository URL." && exit 1
+
+      # --- Host Detection: Set Sensible Defaults Based on Host ---
+      - name: Detect Hosting Platform and Set Defaults
+        run: |
+          # Detects Pantheon, Platform.sh, or Acquia and sets sensible defaults for each.
+          if [[ ${{ vars.DEPLOY_REPO }} == *"drush.in"* ]]; then
+            echo "Pantheon site detected."
+            echo "HOST=pantheon" >> $GITHUB_ENV
+            echo "CI_COMPOSER=false" >> $GITHUB_ENV
+            # pantheon-se/composer-node is installed and set to node 16 by default
+            echo "CI_NODE=false" >> $GITHUB_ENV
+            echo "TERMINUS=true" >> $GITHUB_ENV
+            echo "REMOTE_PRIMARY=master" >> $GITHUB_ENV
+            echo "MULTIDEV=true" >> $GITHUB_ENV
+            echo "HOST_DOCROOT=web" >> $GITHUB_ENV
+          elif [[ ${{ vars.DEPLOY_REPO }} == *"platform.sh"* ]]; then
+            echo "Platform.sh site detected."
+            echo "HOST=platform" >> $GITHUB_ENV
+            echo "CI_COMPOSER=false" >> $GITHUB_ENV
+            echo "CI_NODE=true" >> $GITHUB_ENV
+            echo "TERMINUS=false" >> $GITHUB_ENV
+            # Platform.sh uses master by default, but this can be overridden if your project uses a different branch
+            echo "REMOTE_PRIMARY=master" >> $GITHUB_ENV
+            # Platform.sh doesn't use Pantheon-style multidev environments
+            echo "MULTIDEV=false" >> $GITHUB_ENV
+            # Platform.sh typically uses 'web' as docroot, but this can be overridden
+            echo "HOST_DOCROOT=web" >> $GITHUB_ENV
+          elif [[ ${{ vars.DEPLOY_REPO }} == *"acquia"* ]]; then
+            echo "Acquia site detected."
+            echo "HOST=acquia" >> $GITHUB_ENV
+            echo "CI_COMPOSER=true" >> $GITHUB_ENV
+            echo "CI_NODE=true" >> $GITHUB_ENV
+            echo "TERMINUS=false" >> $GITHUB_ENV
+            echo "REMOTE_PRIMARY=main" >> $GITHUB_ENV
+            echo "MULTIDEV=false" >> $GITHUB_ENV
+            echo "HOST_DOCROOT=docroot" >> $GITHUB_ENV
+          else
+            echo "Host not automatically detected. You can still use this workflow by setting the necessary overrides in the 'Define Overrides' step:" && \
+            echo "- Set HOST to identify your platform" && \
+            echo "- Set HOST_DOCROOT to your Drupal docroot path" && \
+            echo "- Set REMOTE_PRIMARY to your host's primary branch name" && \
+            echo "- Configure other options as needed for your host" && \
+            exit 1
+          fi
+
+      - name: Get branch name
+        id: branch-name
+        uses: tj-actions/branch-names@dde14ac574a8b9b1cedc59a1cf312788af43d8d8 # v8.2.1
+
+      - name: Configure
+        id: configure
+        env:
+          HOST_OVERRIDE: ${{ steps.overrides.outputs.HOST }}
+          HOST_DOCROOT_OVERRIDE: ${{ steps.overrides.outputs.HOST_DOCROOT }}
+          CI_COMPOSER_OVERRIDE: ${{ steps.overrides.outputs.CI_COMPOSER }}
+          CI_NODE_OVERRIDE: ${{ steps.overrides.outputs.CI_NODE }}
+          TERMINUS_OVERRIDE: ${{ steps.overrides.outputs.TERMINUS }}
+          REMOTE_PRIMARY_OVERRIDE: ${{ steps.overrides.outputs.REMOTE_PRIMARY }}
+          MULTIDEV_OVERRIDE: ${{ steps.overrides.outputs.MULTIDEV }}
+          NODE_TESTS_OVERRIDE: ${{ steps.overrides.outputs.NODE_TESTS }}
+          BRANCH_NAME: ${{ steps.branch-name.outputs.current_branch }}
+          IS_DEFAULT_BRANCH: ${{ steps.branch-name.outputs.is_default }}
+        run: |
+          set_var() {
+            local var="$1"
+            local override_var="${var}_OVERRIDE"
+            local override="${!override_var}"
+            local envval="${!var}"
+            if [ ! -z "$override" ]; then
+              echo "$var override present: $override"
+              echo "$var=$override" >> $GITHUB_ENV
+              echo "$var=$override" >> $GITHUB_OUTPUT
+            else
+              echo "$var default present: $envval"
+              echo "$var=$envval" >> $GITHUB_ENV
+              echo "$var=$envval" >> $GITHUB_OUTPUT
+            fi
+          }
+          set_var HOST
+          set_var HOST_DOCROOT
+          set_var CI_COMPOSER
+          set_var CI_NODE
+          set_var TERMINUS
+          set_var REMOTE_PRIMARY
+          set_var MULTIDEV
+          set_var NODE_TESTS
+
+          if [ "$IS_DEFAULT_BRANCH" = "true" ]; then
+            echo "PUSH_BRANCH=$REMOTE_PRIMARY" >> $GITHUB_ENV
+            echo "PUSH_BRANCH=$REMOTE_PRIMARY" >> $GITHUB_OUTPUT
+            echo "IS_PRIMARY=true" >> $GITHUB_ENV
+            echo "IS_PRIMARY=true" >> $GITHUB_OUTPUT
+          else
+            if ! git check-ref-format --branch "$BRANCH_NAME"; then
+              echo "❌ Invalid Git branch name: '$BRANCH_NAME'"
+              exit 1
+            fi
+            echo "PUSH_BRANCH=$BRANCH_NAME" >> $GITHUB_ENV
+            echo "PUSH_BRANCH=$BRANCH_NAME" >> $GITHUB_OUTPUT
+            echo "IS_PRIMARY=false" >> $GITHUB_ENV
+            echo "IS_PRIMARY=false" >> $GITHUB_OUTPUT
+          fi
+
+      # --- Pantheon Site Variable Check ---
+      - name: Stop if Pantheon Site Name is not set
+        if: steps.configure.outputs.HOST == 'pantheon' && vars.PANTHEON_SITE_NAME==''
+        run: echo "Pantheon sites must have a PANTHEON_SITE_NAME variable set up.  (https://github.com/$GITHUB_REPOSITORY/settings/variables/actions)" && exit 1
+
+      # --- Validate Pantheon Multidev Branch Name ---
+      - name: Validate Pantheon Multidev Branch Name
+        if: steps.configure.outputs.HOST == 'pantheon' && github.event_name == 'pull_request'
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          echo "Checking if '$BRANCH_NAME' is a valid Pantheon Multidev branch name..."
+
+          if [[ ! "$BRANCH_NAME" =~ ^[a-z0-9][a-z0-9-]{0,10}$ ]]; then
+            echo "❌ Invalid branch name '$BRANCH_NAME' for Pantheon Multidev."
+            echo "Requirements:"
+            echo "- All lowercase"
+            echo "- Only letters, numbers, and hyphens"
+            echo "- Starts with a letter or number"
+            echo "- Maximum of 11 characters"
+            exit 1
+          fi
+
+          echo "✅ Valid Pantheon Multidev branch name: $BRANCH_NAME"
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Only build composer side theme if package.json and package.lock exist.
+      - name: Node.js - Check for package.lock
+        id: package-json-exists
+        uses: andstor/file-existence-action@076e0072799f4942c8bc574a82233e1e4d13e9d6 # v3.0.0
+        with:
+          files: "package.json, package.lock"
+        if: github.event_name != 'pull_request' || github.event.action != 'closed'
+
+      - name: Read platform PHP version from composer.json
+        if: steps.configure.outputs.CI_COMPOSER=='true' || steps.configure.outputs.TERMINUS=='true'
+        id: php-version
+        run: |
+          PLATFORM_PHP=$(jq -r '.config.platform.php' composer.json)
+          echo "php-version=$PLATFORM_PHP" >> $GITHUB_OUTPUT
+
+      # setup-php includes latest composer by default, so we can use it later if needed.
+      - name: PHP
+        if: steps.configure.outputs.CI_COMPOSER=='true' || steps.configure.outputs.TERMINUS=='true'
+        uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a # v2.33.0
+        with:
+          php-version: "${{ steps.php-version.outputs.php-version }}"
+
+      # Switch docroot from 'web' to the host-specific docroot (e.g., 'docroot' for Acquia)
+      # This ensures your Drupal project structure matches the host's requirements
+      - name: Docroot switch
+        id: docroot-switch
+        if: steps.configure.outputs.CI_COMPOSER=='true' && steps.configure.outputs.HOST_DOCROOT!='web' && (github.event_name != 'pull_request' || github.event.action != 'closed')
+        run: |
+          # Move the Drupal codebase to the correct docroot
+          git mv web/ ${HOST_DOCROOT}/
+          # Update Drupal's scaffold location to use the new docroot
+          composer config --json extra.drupal-scaffold.locations '{ "web-root": "'$HOST_DOCROOT'/" }'
+          # Update Composer's installer paths to use the new docroot
+          composer config --json extra.installer-paths "{ \"${HOST_DOCROOT}/core\": [\"type:drupal-core\"], \
+          \"${HOST_DOCROOT}/libraries/{\$name}\": [\"type:drupal-library\"], \"${HOST_DOCROOT}/modules/contrib/{\$name}\": [\"type:drupal-module\"], \
+          \"${HOST_DOCROOT}/profiles/contrib/{\$name}\": [ \"type:drupal-profile\" ], \"${HOST_DOCROOT}/themes/contrib/{\$name}\": [ \"type:drupal-theme\" ], \
+          \"drush/Commands/contrib/{\$name}\": [ \"type:drupal-drush\" ]}"
+
+      - name: Composer
+        if: steps.configure.outputs.CI_COMPOSER=='true' && (github.event_name != 'pull_request' || github.event.action != 'closed')
+        uses: ramsey/composer-install@3cf229dc2919194e9e36783941438d17239e8520 # v3.1.1
+        with:
+          composer-options: "--prefer-dist --ignore-platform-reqs"
+
+      - name: Install Terminus
+        if: steps.configure.outputs.TERMINUS=='true'
+        uses: pantheon-systems/terminus-github-actions@8e024bd89ff46ed2aa4e0663c6b54c87a94344f8 # v1.2.7
+        with:
+          pantheon-machine-token: ${{ secrets.PANTHEON_MACHINE_TOKEN }}
+
+      # Only run build, push, and related steps if PR is not being closed (i.e., not a merge/close event)
+      - name: Skip build/push steps on PR close
+        if: github.event_name == 'pull_request' && github.event.action == 'closed'
+        run: |
+          echo "Skipping build and push steps because PR is being closed."
+
+      # All build/push steps below should only run if PR is not being closed
+      - name: Prepare Pantheon site for push
+        if: steps.configure.outputs.TERMINUS=='true' && steps.configure.outputs.HOST=='pantheon' && (github.event_name != 'pull_request' || github.event.action != 'closed')
+        run: |
+          if [ $IS_PRIMARY='true' ]; then
+            (terminus connection:info ${{ vars.PANTHEON_SITE_NAME }}.dev &>/dev/null) && { terminus connection:set ${{ vars.PANTHEON_SITE_NAME }}.dev git --yes; } || { echo "no Pantheon environment found"; }
+          else
+            (terminus connection:info ${{ vars.PANTHEON_SITE_NAME }}.$PUSH_BRANCH &>/dev/null) && { terminus connection:set ${{ vars.PANTHEON_SITE_NAME }}.$PUSH_BRANCH git --yes; } || { echo "no Pantheon environment found"; }
+          fi
+          terminus connection:set ${{ vars.PANTHEON_SITE_NAME }}.dev git --yes
+
+      - name: Node.js - Configure
+        id: node-setup
+        uses: actions/setup-node@v4
+        if: (( steps.package-json-exists.outputs.files_exists == 'true' && steps.configure.outputs.CI_NODE=='true' ) || steps.configure.outputs.NODE_TESTS == 'true') && (github.event_name != 'pull_request' || github.event.action != 'closed')
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Node.js - Install
+        run: npm ci
+        if: steps.node-setup.outcome == 'success' && (github.event_name != 'pull_request' || github.event.action != 'closed')
+
+      - name: Node.js - Test
+        run: npm test
+        if: steps.node-setup.outcome == 'success' && steps.configure.outputs.NODE_TESTS == 'true' && (github.event_name != 'pull_request' || github.event.action != 'closed')
+
+      - name: Configure SSH
+        uses: shimataro/ssh-key-action@d4fffb50872869abe2d9a9098a6d9c5aa7d16be4 # v2.7.0
+        with:
+          key: ${{ secrets.SSH_KEY }}
+          config: ${{ vars.SSH_CONFIG }}
+          known_hosts: unnecessary
+
+      - name: Git config
+        run: |
+            git config --global user.name "${{ vars.GIT_NAME }}"
+            git config --global user.email "${{ vars.GIT_EMAIL }}"
+
+      - name: Look for gitignore-deploy
+        if: (steps.configure.outputs.CI_COMPOSER=='true' || steps.configure.outputs.CI_NODE=='true') && (github.event_name != 'pull_request' || github.event.action != 'closed')
+        id: gitignore-deploy-check
+        uses: andstor/file-existence-action@076e0072799f4942c8bc574a82233e1e4d13e9d6 # v3.0.0
+        with:
+          files: ".gitignore-deploy"
+          fail: true
+
+      - name: Gitignore shuffle
+        if: steps.gitignore-deploy-check.outcome == 'success' && (github.event_name != 'pull_request' || github.event.action != 'closed')
+        run: |
+          rm .gitignore
+          mv .gitignore-deploy .gitignore
+          find $HOST_DOCROOT -type d -name .git -print0|xargs -0 rm -rf
+          git add .
+
+      - name: Check in any changes
+        if: (steps.configure.outputs.CI_COMPOSER=='true' || steps.configure.outputs.CI_NODE=='true') && (github.event_name != 'pull_request' || github.event.action != 'closed')
+        env:
+          BRANCH_NAME: ${{ steps.configure.outputs.PUSH_BRANCH }}
+        run: |
+          git add .
+          git commit -m "Build of $BRANCH_NAME.  All host-side changes will be overwritten."
+
+      - name: Add git remote
+        env:
+          deploy_repo: '${{ vars.DEPLOY_REPO }}'
+        run: |
+          git remote add deploy $deploy_repo
+
+      - name: Push to Primary branch
+        if: steps.configure.outputs.IS_PRIMARY == 'true' && (github.event_name != 'pull_request' || github.event.action != 'closed')
+        env:
+          PUSH_BRANCH: ${{ steps.configure.outputs.PUSH_BRANCH }}
+        run: |
+          git branch -m "$PUSH_BRANCH"
+          git push --force deploy "$PUSH_BRANCH"
+
+      - name: Push to Multidev branch
+        if: steps.configure.outputs.MULTIDEV=='true' && steps.configure.outputs.IS_PRIMARY != 'true' && (github.event_name != 'pull_request' || github.event.action != 'closed')
+        env:
+          PUSH_BRANCH: ${{ steps.configure.outputs.PUSH_BRANCH }}
+        run: |
+          git push deploy HEAD:refs/heads/"$PUSH_BRANCH" --force
+
+      # Pantheon Multidev Management for PRs
+      - name: Check Pantheon Multidev Slot Availability
+        if: steps.configure.outputs.HOST == 'pantheon' && github.event_name == 'pull_request' && steps.configure.outputs.IS_PRIMARY != 'true' && (github.event_name != 'pull_request' || github.event.action != 'closed')
+        id: pantheon-multidev-slots
+        env:
+          PANTHEON_SITE_NAME: ${{ vars.PANTHEON_SITE_NAME }}
+        run: |
+          MAX=$(terminus site:info $PANTHEON_SITE_NAME --field="Max Multidevs")
+          COUNT=$(terminus env:list $PANTHEON_SITE_NAME --format=list | grep -vE '^(dev|test|live)$' | wc -l)
+          echo "Max Multidevs: $MAX"
+          echo "Current Multidevs: $COUNT"
+          if [ "$COUNT" -lt "$MAX" ]; then
+            echo "multidev_available=true" >> $GITHUB_ENV
+          else
+            echo "multidev_available=false" >> $GITHUB_ENV
+          fi
+
+      # Create Pantheon Multidev and set output if created
+      - name: Create Pantheon Multidev
+        if: steps.configure.outputs.HOST == 'pantheon' && github.event_name == 'pull_request' && steps.configure.outputs.IS_PRIMARY != 'true' && env.multidev_available == 'true' && (github.event.action == 'opened' || github.event.action == 'reopened' || github.event.action == 'synchronize')
+        id: create-pantheon-multidev
+        env:
+          PANTHEON_SITE_NAME: ${{ vars.PANTHEON_SITE_NAME }}
+          BRANCH_NAME: ${{ steps.configure.outputs.PUSH_BRANCH }}
+        run: |
+          set -e
+          echo "Creating multidev for $BRANCH_NAME if necessary"
+          # Function to check if an environment exists and is initialized
+          is_initialized() {
+            terminus env:info "$1" --format=json 2>/dev/null | grep -q '"initialized": *true'
+          }
+          # First, check if the multidev environment already exists and is initialized
+          if is_initialized "$PANTHEON_SITE_NAME.$BRANCH_NAME"; then
+            echo "Multidev environment $BRANCH_NAME already exists and is initialized. No action needed."
+            echo "multidev_created=false" >> $GITHUB_OUTPUT
+          else
+            # If not, determine the best source environment (live > test > dev, only if initialized)
+            SOURCE_ENV="dev"
+            if is_initialized "$PANTHEON_SITE_NAME.live"; then
+              SOURCE_ENV="live"
+            elif is_initialized "$PANTHEON_SITE_NAME.test"; then
+              SOURCE_ENV="test"
+            fi
+            echo "Using source environment: $SOURCE_ENV"
+            if terminus multidev:create "$PANTHEON_SITE_NAME.$SOURCE_ENV" "${{ steps.configure.outputs.PUSH_BRANCH }}"; then
+              echo "multidev_created=true" >> $GITHUB_OUTPUT
+            else
+              echo "multidev_created=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          fi
+
+      # Add Pantheon Multidev link to PR description ONLY if a multidev was just created (not on sync)
+      - name: Add Pantheon Multidev Link to PR (on creation only)
+        if: steps.configure.outputs.HOST == 'pantheon' && github.event_name == 'pull_request' && steps.configure.outputs.IS_PRIMARY != 'true' && env.multidev_available == 'true' && (github.event.action == 'opened' || github.event.action == 'reopened' || github.event.action == 'synchronize') && steps.create-pantheon-multidev.outputs.multidev_created == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PANTHEON_SITE_NAME: ${{ vars.PANTHEON_SITE_NAME }}
+          PUSH_BRANCH: ${{ steps.configure.outputs.PUSH_BRANCH }}
+        run: |
+          MULTIDEV_URL="https://$PUSH_BRANCH-${PANTHEON_SITE_NAME}.pantheonsite.io"
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          CURRENT_BODY=$(gh pr view $PR_NUMBER --json body -q '.body')
+          gh pr edit $PR_NUMBER --body "$(printf '%s\n\n🌐 Pantheon Multidev: %s' "$CURRENT_BODY" "$MULTIDEV_URL")"
+
+      - name: Comment on PR if No Multidev Slots Available
+        if: steps.configure.outputs.HOST == 'pantheon' && github.event_name == 'pull_request' && steps.configure.outputs.IS_PRIMARY != 'true' && env.multidev_available == 'false' && (github.event.action == 'opened' || github.event.action == 'reopened' || github.event.action == 'synchronize')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "⚠️ A Pantheon multidev could not be created for this PR because all available multidev slots are in use. You may contact Pantheon support to request an increase in the multidev limit."
+
+      - name: Delete Pantheon Multidev or Branch on PR Close
+        if: steps.configure.outputs.HOST == 'pantheon' && github.event_name == 'pull_request' && github.event.action == 'closed' && steps.configure.outputs.IS_PRIMARY != 'true'
+        env:
+          PANTHEON_SITE_NAME: ${{ vars.PANTHEON_SITE_NAME }}
+          PUSH_BRANCH: ${{ steps.configure.outputs.PUSH_BRANCH }}
+        run: |
+          echo "Checking if multidev '$PUSH_BRANCH' exists and is initialized..."
+
+          # Returns 0 if multidev env exists and is initialized
+          if terminus env:info "$PANTHEON_SITE_NAME.$PUSH_BRANCH" --format=json 2>/dev/null | grep -q '"initialized": *true'; then
+            echo "✅ Multidev '$PUSH_BRANCH' exists and is initialized. Deleting it..."
+            terminus multidev:delete "$PANTHEON_SITE_NAME.$PUSH_BRANCH" -y --delete-branch
+          else
+            echo "⚠️ Multidev '$PUSH_BRANCH' does not exist or is not initialized. Checking for orphaned branch..."
+            REMOTE_REPO="ssh://codeserver.dev.$PANTHEON_SITE_NAME@codeserver.dev.$PANTHEON_SITE_NAME.drush.in:2222/~/repository.git"
+            if git ls-remote --heads deploy "$PUSH_BRANCH" | grep -q "$PUSH_BRANCH"; then
+              echo "🧹 Orphaned branch '$PUSH_BRANCH' found. Deleting..."
+              git push deploy --delete "$PUSH_BRANCH"
+            else
+              echo "✅ No multidev or orphaned branch to clean up."
+            fi
+          fi

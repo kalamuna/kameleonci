@@ -1,0 +1,25 @@
+{
+  "name": "kameleon",
+  "version": "1.0.0",
+  "description": "A versatile GitHub Actions workflow for deploying Drupal projects to multiple hosting platforms",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kalamuna/kameleon.git"
+  },
+  "keywords": [
+    "github-actions",
+    "drupal",
+    "deployment",
+    "pantheon",
+    "platform.sh",
+    "acquia",
+    "ci-cd",
+    "workflow"
+  ],
+  "author": "Kalamuna LLC",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kalamuna/kameleon/issues"
+  },
+  "homepage": "https://github.com/kalamuna/kameleon#readme"
+}
