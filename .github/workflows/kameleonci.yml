@@ -40,6 +40,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+      # --- Verify Required Git and SSH Variables ---
+      - name: Verify Required Git and SSH Variables
+        env:
+          GIT_NAME: ${{ vars.GIT_NAME }}
+          GIT_EMAIL: ${{ vars.GIT_EMAIL }}
+          SSH_CONFIG: ${{ vars.SSH_CONFIG }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          missing=0
+          if [ -z "$GIT_NAME" ]; then
+            echo "❌ GIT_NAME repository variable is missing."
+            missing=1
+          fi
+          if [ -z "$GIT_EMAIL" ]; then
+            echo "❌ GIT_EMAIL repository variable is missing."
+            missing=1
+          fi
+          if [ -z "$SSH_CONFIG" ]; then
+            echo "❌ SSH_CONFIG repository variable is missing."
+            missing=1
+          fi
+          if [ -z "$SSH_KEY" ]; then
+            echo "❌ SSH_KEY repository secret is missing."
+            missing=1
+          fi
+          if [ "$missing" -eq 1 ]; then
+            echo "➡️ Please add the missing variables or secrets in your repository settings:"
+            echo "https://github.com/${GITHUB_REPOSITORY}/settings/variables/actions"
+            exit 1
+          fi
+
       # --- Site-Specific Overrides (Optional) ---
       # These can be used to override host defaults for this site.
       - name: Define Overrides
@@ -164,10 +195,22 @@ jobs:
             echo "IS_PRIMARY=false" >> $GITHUB_OUTPUT
           fi
 
-      # --- Pantheon Site Variable Check ---
-      - name: Stop if Pantheon Site Name is not set
-        if: steps.configure.outputs.HOST == 'pantheon' && vars.PANTHEON_SITE_NAME==''
-        run: echo "Pantheon sites must have a PANTHEON_SITE_NAME variable set up.  (https://github.com/$GITHUB_REPOSITORY/settings/variables/actions)" && exit 1
+      - name: Check required Pantheon variables
+        if: env.TERMINUS == 'true'
+        env:
+          PANTHEON_MACHINE_TOKEN: ${{ secrets.PANTHEON_MACHINE_TOKEN }}
+          PANTHEON_SITE_NAME: ${{ vars.PANTHEON_SITE_NAME }}
+        run: |
+          if [ -z "$PANTHEON_MACHINE_TOKEN" ]; then
+            echo "❌ TERMINUS is enabled, but PANTHEON_MACHINE_TOKEN secret is missing."
+            echo "➡️ Add it at: https://github.com/${GITHUB_REPOSITORY}/settings/secrets/actions"
+            exit 1
+          fi
+          if [ -z "$PANTHEON_SITE_NAME" ]; then
+            echo "❌ TERMINUS is enabled, but PANTHEON_SITE_NAME variable is missing."
+            echo "➡️ Add it at: https://github.com/${GITHUB_REPOSITORY}/settings/variables/actions"
+            exit 1
+          fi
 
       # --- Validate Pantheon Multidev Branch Name ---
       - name: Validate Pantheon Multidev Branch Name
@@ -205,7 +248,21 @@ jobs:
         if: steps.configure.outputs.CI_COMPOSER=='true' || steps.configure.outputs.TERMINUS=='true'
         id: php-version
         run: |
-          PLATFORM_PHP=$(jq -r '.config.platform.php' composer.json)
+          PLATFORM_PHP=$(jq -r '.config.platform.php // empty' composer.json)
+          if [ -z "$PLATFORM_PHP" ]; then
+            PLATFORM_PHP="8.3"
+            echo "⚠️ No PHP version found in composer.json under .config.platform.php"
+            echo "ℹ️ Defaulting to PHP $PLATFORM_PHP"
+            echo "💡 To set an explicit PHP version, add the following to your composer.json:"
+            echo ""
+            echo '  "config": {'
+            echo '    "platform": {'
+            echo '      "php": "8.3"'
+            echo '    }'
+            echo '  }'
+          else
+            echo "✅ Using PHP version from composer.json: $PLATFORM_PHP"
+          fi
           echo "php-version=$PLATFORM_PHP" >> $GITHUB_OUTPUT
 
       # setup-php includes latest composer by default, so we can use it later if needed.
@@ -285,9 +342,12 @@ jobs:
           known_hosts: unnecessary
 
       - name: Git config
+        env:
+          GIT_NAME: ${{ vars.GIT_NAME }}
+          GIT_EMAIL: ${{ vars.GIT_EMAIL }}
         run: |
-            git config --global user.name "${{ vars.GIT_NAME }}"
-            git config --global user.email "${{ vars.GIT_EMAIL }}"
+            git config --global user.name "$GIT_NAME"
+            git config --global user.email "$GIT_EMAIL"
 
       - name: Look for gitignore-deploy
         if: (steps.configure.outputs.CI_COMPOSER=='true' || steps.configure.outputs.CI_NODE=='true') && (github.event_name != 'pull_request' || github.event.action != 'closed')
@@ -325,14 +385,14 @@ jobs:
           PUSH_BRANCH: ${{ steps.configure.outputs.PUSH_BRANCH }}
         run: |
           git branch -m "$PUSH_BRANCH"
-          git push --force deploy "$PUSH_BRANCH"
+          git push deploy "$PUSH_BRANCH"
 
       - name: Push to Multidev branch
         if: steps.configure.outputs.MULTIDEV=='true' && steps.configure.outputs.IS_PRIMARY != 'true' && (github.event_name != 'pull_request' || github.event.action != 'closed')
         env:
           PUSH_BRANCH: ${{ steps.configure.outputs.PUSH_BRANCH }}
         run: |
-          git push deploy HEAD:refs/heads/"$PUSH_BRANCH" --force
+          git push deploy HEAD:refs/heads/"$PUSH_BRANCH"
 
       # Pantheon Multidev Management for PRs
       - name: Check Pantheon Multidev Slot Availability
