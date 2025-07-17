@@ -87,4 +87,10 @@ else
     echo "2. Push your code to trigger the workflow"
 fi
 echo ""
+
 echo "📚 Full documentation: https://github.com/kalamuna/kameleonci"
+
+# Delete this install script
+SCRIPT_PATH="$(realpath "$0")"
+echo "🧹 Removing installer script: $SCRIPT_PATH"
+rm -f "$SCRIPT_PATH"
