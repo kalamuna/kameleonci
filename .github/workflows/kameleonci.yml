@@ -37,6 +37,8 @@ on:
 
 jobs:
   build:
+    # Skip this workflow when running in the KameleonCI repository itself
+    if: github.repository != 'kalamuna/kameleonci'
     runs-on: ubuntu-latest
     steps:
 
