@@ -332,6 +332,12 @@ jobs:
         run: npm ci
         if: steps.node-setup.outcome == 'success' && (github.event_name != 'pull_request' || github.event.action != 'closed')
 
+      - name: Node.js - Theme Build
+        if: steps.node-setup.outcome == 'success' && steps.configure.outputs.CI_NODE == 'true' && (github.event_name != 'pull_request' || github.event.action != 'closed')
+        run: |
+          # Insert your theme build commands below, or uncomment the line below if it is correct.
+          # npm run build
+
       - name: Node.js - Test
         run: npm test
         if: steps.node-setup.outcome == 'success' && steps.configure.outputs.NODE_TESTS == 'true' && (github.event_name != 'pull_request' || github.event.action != 'closed')
