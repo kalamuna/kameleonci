@@ -16,7 +16,7 @@
 
 name: KameleonCI Deploy
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 # When a PR is reopened with new code, this triggers two actions runs.  This will keep them from interfering with each other.
 concurrency:
