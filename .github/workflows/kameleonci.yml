@@ -399,6 +399,8 @@ jobs:
               echo "KameleonCI initialized on $(date)" > .kameleon-initialized
               git add .kameleon-initialized
               git commit -m "Add .kameleon-initialized to disable future force pushes"
+              # Authenticate with GITHUB_TOKEN for push to origin
+              git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
               git push origin "$PUSH_BRANCH"
               git push deploy "$PUSH_BRANCH"
             else
