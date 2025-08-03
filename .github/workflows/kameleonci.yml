@@ -392,6 +392,8 @@ jobs:
         env:
           PUSH_BRANCH: ${{ steps.configure.outputs.PUSH_BRANCH }}
         run: |
+          # Save the original branch name
+          ORIGINAL_BRANCH="${{ steps.branch-name.outputs.current_branch }}"
           git branch -m "$PUSH_BRANCH"
           if [ ! -f .kameleon-initialized ]; then
             echo "First push: force-pushing to remote deploy repo to ensure contents match."
@@ -401,7 +403,9 @@ jobs:
               git commit -m "Add .kameleon-initialized to disable future force pushes"
               # Authenticate with GITHUB_TOKEN for push to origin
               git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-              git push origin "${{ steps.branch-name.outputs.current_branch }}"
+              # Rename back to the original branch before pushing to origin
+              git branch -m "$ORIGINAL_BRANCH"
+              git push origin "$ORIGINAL_BRANCH"
               git push deploy "$PUSH_BRANCH"
             else
               echo "Force push failed. .kameleon-initialized will not be written."
