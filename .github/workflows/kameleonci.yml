@@ -392,7 +392,6 @@ jobs:
         env:
           PUSH_BRANCH: ${{ steps.configure.outputs.PUSH_BRANCH }}
         run: |
-          # Save the original branch name
           ORIGINAL_BRANCH="${{ steps.branch-name.outputs.current_branch }}"
           git branch -m "$PUSH_BRANCH"
           if [ ! -f .kameleon-initialized ]; then
@@ -413,6 +412,7 @@ jobs:
               echo "Force push failed. .kameleon-initialized will not be written."
             fi
           else
+            echo "Pushing to remote ${PUSH_BRANCH} branch."
             git push deploy "$PUSH_BRANCH"
           fi
 
