@@ -393,7 +393,20 @@ jobs:
           PUSH_BRANCH: ${{ steps.configure.outputs.PUSH_BRANCH }}
         run: |
           git branch -m "$PUSH_BRANCH"
-          git push deploy "$PUSH_BRANCH"
+          if [ ! -f .kameleon-initialized ]; then
+            echo "First push: force-pushing to remote deploy repo to ensure contents match."
+            if git push deploy "$PUSH_BRANCH" --force; then
+              echo "KameleonCI initialized on $(date)" > .kameleon-initialized
+              git add .kameleon-initialized
+              git commit -m "Add .kameleon-initialized to disable future force pushes"
+              git push origin "$PUSH_BRANCH"
+              git push deploy "$PUSH_BRANCH"
+            else
+              echo "Force push failed. .kameleon-initialized will not be written."
+            fi
+          else
+            git push deploy "$PUSH_BRANCH"
+          fi
 
       - name: Push to Multidev branch
         if: steps.configure.outputs.MULTIDEV=='true' && steps.configure.outputs.IS_PRIMARY != 'true' && (github.event_name != 'pull_request' || github.event.action != 'closed')

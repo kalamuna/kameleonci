@@ -12,6 +12,11 @@ chmod +x install.sh
 ./install.sh
 ```
 
+
+> **Important:** On the first push, KameleonCI will perform a force push to ensure the contents of both repositories match. After a successful initial workflow run, a file named `.kameleon-initialized` will be committed to the repo. From then on, force push will be disabled and only safe pushes will be used.
+
+> **Warning:** The initial force push will overwrite any files in the remote repository with the contents of your local repository. Make sure you want to replace the remote contents before proceeding.
+
 The installation script will:
 - Create the necessary `.github/workflows` directory
 - Install the workflow file (with confirmation if it already exists)

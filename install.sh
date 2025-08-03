@@ -1,6 +1,13 @@
 #!/bin/bash
 
 echo "🦎 Installing KameleonCI Deployment Workflow..."
+echo ""
+echo "⚠️  IMPORTANT: On the first push, KameleonCI will force push to ensure the contents of both repositories match."
+echo "   After the first successful workflow run, a file named .kameleon-initialized will be committed to the repo."
+echo "   From then on, force push will be disabled and only safe pushes will be used."
+echo "   The initial force push will overwrite any files in the remote repository with the contents of your local repository."
+echo "   Make sure you want to replace the remote contents before proceeding."
+echo ""
 
 # Function to download a file with overwrite confirmation
 download_file() {
