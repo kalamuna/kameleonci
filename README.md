@@ -71,6 +71,8 @@ Configure your `SSH_CONFIG` variable. Here is an example that includes the defau
 # Pantheon
 Host *.drush.in
     StrictHostKeyChecking no
+    # Prevent multidev timeouts
+    ServerAliveInterval 30
 
 # Platform.sh
 Host *.platform.sh
@@ -84,7 +86,7 @@ Host *.hosting.acquia.com
 # Example for a custom Git host
 # Host git.example.com
 #     StrictHostKeyChecking no
-      # Add any additional SSH options needed
+#     # Add any additional SSH options needed
 ```
 
 ### Override Options
