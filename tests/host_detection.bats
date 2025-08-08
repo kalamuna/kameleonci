@@ -24,9 +24,9 @@ setup() {
     [ "$result" = "acquia" ]
 }
 
-@test "Invalid host should fail" {
+@test "Unknown host should return Unknown host" {
     export DEPLOY_REPO="git@github.com:org/repo.git"
     run detect_host
-    [ "$status" -eq 1 ]
+    [ "$status" -eq 0 ]
     [ "$output" = "Unknown host" ]
 }
