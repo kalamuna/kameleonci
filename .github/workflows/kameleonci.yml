@@ -98,32 +98,29 @@ jobs:
       # --- Host Detection: Set Sensible Defaults Based on Host ---
       - name: Detect Hosting Platform and Set Defaults
         run: |
-          # Detects Pantheon, Platform.sh, or Acquia and sets sensible defaults for each.
-          if [[ ${{ vars.DEPLOY_REPO }} == *"drush.in"* ]]; then
+          source .github/scripts/workflow_functions.sh
+          DEPLOY_REPO="${{ vars.DEPLOY_REPO }}"
+          HOST=$(detect_host)
+          echo "HOST=$HOST" >> $GITHUB_ENV
+          # Set other variables based on $HOST
+          if [ "$HOST" = "pantheon" ]; then
             echo "Pantheon site detected."
-            echo "HOST=pantheon" >> $GITHUB_ENV
             echo "CI_COMPOSER=false" >> $GITHUB_ENV
-            # pantheon-se/composer-node is installed and set to node 16 by default
             echo "CI_NODE=false" >> $GITHUB_ENV
             echo "TERMINUS=true" >> $GITHUB_ENV
             echo "REMOTE_PRIMARY=master" >> $GITHUB_ENV
             echo "MULTIDEV=true" >> $GITHUB_ENV
             echo "HOST_DOCROOT=web" >> $GITHUB_ENV
-          elif [[ ${{ vars.DEPLOY_REPO }} == *"platform.sh"* ]]; then
+          elif [ "$HOST" = "platform" ]; then
             echo "Platform.sh site detected."
-            echo "HOST=platform" >> $GITHUB_ENV
             echo "CI_COMPOSER=false" >> $GITHUB_ENV
             echo "CI_NODE=true" >> $GITHUB_ENV
             echo "TERMINUS=false" >> $GITHUB_ENV
-            # Platform.sh uses master by default, but this can be overridden if your project uses a different branch
             echo "REMOTE_PRIMARY=master" >> $GITHUB_ENV
-            # Platform.sh doesn't use Pantheon-style multidev environments
             echo "MULTIDEV=false" >> $GITHUB_ENV
-            # Platform.sh typically uses 'web' as docroot, but this can be overridden
             echo "HOST_DOCROOT=web" >> $GITHUB_ENV
-          elif [[ ${{ vars.DEPLOY_REPO }} == *"acquia"* ]]; then
+          elif [ "$HOST" = "acquia" ]; then
             echo "Acquia site detected."
-            echo "HOST=acquia" >> $GITHUB_ENV
             echo "CI_COMPOSER=true" >> $GITHUB_ENV
             echo "CI_NODE=true" >> $GITHUB_ENV
             echo "TERMINUS=false" >> $GITHUB_ENV
@@ -131,11 +128,11 @@ jobs:
             echo "MULTIDEV=false" >> $GITHUB_ENV
             echo "HOST_DOCROOT=docroot" >> $GITHUB_ENV
           else
-            echo "Host not automatically detected. You can still use this workflow by setting the necessary overrides in the 'Define Overrides' step:" && \
-            echo "- Set HOST to identify your platform" && \
-            echo "- Set HOST_DOCROOT to your Drupal docroot path" && \
-            echo "- Set REMOTE_PRIMARY to your host's primary branch name" && \
-            echo "- Configure other options as needed for your host" && \
+            echo "Host not automatically detected. You can still use this workflow by setting the necessary overrides in the 'Define Overrides' step:"
+            echo "- Set HOST to identify your platform"
+            echo "- Set HOST_DOCROOT to your Drupal docroot path"
+            echo "- Set REMOTE_PRIMARY to your host's primary branch name"
+            echo "- Configure other options as needed for your host"
             exit 1
           fi
 
