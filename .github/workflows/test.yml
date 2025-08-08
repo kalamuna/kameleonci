@@ -83,7 +83,7 @@ jobs:
           echo "DEPLOY_REPO=$DEPLOY_REPO"
           HOST=$(detect_host)
           echo "HOST=$HOST"
-          if [[ "${{ matrix.scenario }}" == "unknown" ]]; then
+          if [[ "${{ matrix.scenario }}" == "Unknown host" ]]; then
             if [[ "$HOST" != "Unknown host" ]]; then
               echo "❌ Host detection failed for unknown"
               echo "Expected: Unknown host"
