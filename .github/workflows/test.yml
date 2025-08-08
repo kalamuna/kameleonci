@@ -65,6 +65,9 @@ jobs:
               ;;
           esac
 
+          # Persist DEPLOY_REPO for next step
+          echo "DEPLOY_REPO=$DEPLOY_REPO" >> $GITHUB_ENV
+
           # Set common test variables
           echo "GIT_NAME=Test User" >> $GITHUB_ENV
           echo "GIT_EMAIL=test@example.com" >> $GITHUB_ENV
