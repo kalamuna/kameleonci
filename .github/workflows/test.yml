@@ -63,7 +63,7 @@ jobs:
               echo "Setting up Acquia scenario"
               export DEPLOY_REPO="project@git.acquia.com:project.git"
               ;;
-            Unknown host)
+            "Unknown host")
               echo "Setting up Unknown scenario"
               export DEPLOY_REPO="git@github.com:org/repo.git"
               ;;
