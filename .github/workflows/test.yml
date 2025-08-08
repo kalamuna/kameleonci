@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        scenario: ['pantheon', 'platform-sh', 'acquia']
+        scenario: ['pantheon', 'platform', 'acquia']
     steps:
       - uses: actions/checkout@v3
 
@@ -55,7 +55,7 @@ jobs:
               echo "Setting up Pantheon scenario"
               export DEPLOY_REPO="ssh://codeserver.dev.site@codeserver.dev.site.drush.in:2222/~/repository.git"
               ;;
-            platform-sh)
+            platform)
               echo "Setting up Platform.sh scenario"
               export DEPLOY_REPO="project@git.region.platform.sh:project.git"
               ;;
