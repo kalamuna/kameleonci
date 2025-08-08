@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        scenario: ['pantheon', 'platform', 'acquia']
+        scenario: ['pantheon', 'platform', 'acquia', 'unknown']
     steps:
       - uses: actions/checkout@v3
 
@@ -63,6 +63,10 @@ jobs:
               echo "Setting up Acquia scenario"
               export DEPLOY_REPO="project@git.acquia.com:project.git"
               ;;
+            unknown)
+              echo "Setting up Unknown scenario"
+              export DEPLOY_REPO="git@github.com:org/repo.git"
+              ;;
           esac
 
           # Persist DEPLOY_REPO for next step
@@ -79,9 +83,18 @@ jobs:
           echo "DEPLOY_REPO=$DEPLOY_REPO"
           HOST=$(detect_host)
           echo "HOST=$HOST"
-          if [[ "$HOST" != "${{ matrix.scenario }}" ]]; then
-            echo "❌ Host detection failed for ${{ matrix.scenario }}"
-            echo "Expected: ${{ matrix.scenario }}"
-            echo "Got: $HOST"
-            exit 1
+          if [[ "${{ matrix.scenario }}" == "unknown" ]]; then
+            if [[ "$HOST" != "Unknown host" ]]; then
+              echo "❌ Host detection failed for unknown"
+              echo "Expected: Unknown host"
+              echo "Got: $HOST"
+              exit 1
+            fi
+          else
+            if [[ "$HOST" != "${{ matrix.scenario }}" ]]; then
+              echo "❌ Host detection failed for ${{ matrix.scenario }}"
+              echo "Expected: ${{ matrix.scenario }}"
+              echo "Got: $HOST"
+              exit 1
+            fi
           fi
