@@ -12,7 +12,7 @@ detect_host() {
         return 0
     else
         echo "Unknown host"
-        return 1
+        return 0
     fi
 }
 
