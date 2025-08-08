@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        scenario: ['pantheon', 'platform', 'acquia', 'unknown']
+        scenario: ['pantheon', 'platform', 'acquia', 'Unknown host']
     steps:
       - uses: actions/checkout@v3
 
@@ -63,7 +63,7 @@ jobs:
               echo "Setting up Acquia scenario"
               export DEPLOY_REPO="project@git.acquia.com:project.git"
               ;;
-            unknown)
+            Unknown host)
               echo "Setting up Unknown scenario"
               export DEPLOY_REPO="git@github.com:org/repo.git"
               ;;
