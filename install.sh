@@ -1,5 +1,7 @@
 #!/bin/bash
 
+KAMELEONCI_REPO_URL="https://raw.githubusercontent.com/kalamuna/kameleonci/main"
+
 echo "🦎 Installing KameleonCI Deployment Workflow..."
 
 # Function to download a file with overwrite confirmation
@@ -34,9 +36,18 @@ mkdir -p .github/workflows
 
 # Download the workflow file
 download_file \
-    "https://raw.githubusercontent.com/kalamuna/kameleonci/main/.github/workflows/kameleonci.yml" \
+    "$KAMELEONCI_REPO_URL/.github/workflows/kameleonci.yml" \
     ".github/workflows/kameleonci.yml" \
     "workflow file"
+
+# Create scripts directory if it doesn't exist
+mkdir -p .github/scripts
+
+# Download the shared workflow functions script
+download_file \
+    "$KAMELEONCI_REPO_URL/.github/scripts/workflow_functions.sh" \
+    ".github/scripts/workflow_functions.sh" \
+    "workflow functions script"
 
 # Ask about build process
 echo ""
@@ -53,7 +64,7 @@ read -r needs_build
 
 if [[ $needs_build =~ ^[Yy]$ ]]; then
     download_file \
-        "https://raw.githubusercontent.com/kalamuna/kameleonci/main/.gitignore-deploy" \
+        "$KAMELEONCI_REPO_URL/.gitignore-deploy" \
         ".gitignore-deploy" \
         ".gitignore-deploy file"
     echo "ℹ️  Review and customize .gitignore-deploy for your project's build artifacts"
