@@ -73,7 +73,9 @@ jobs:
       - name: Verify Host Detection
         run: |
           source .github/scripts/workflow_functions.sh
+          echo "DEPLOY_REPO=$DEPLOY_REPO"
           HOST=$(detect_host)
+          echo "HOST=$HOST"
           if [[ "$HOST" != "${{ matrix.scenario }}" ]]; then
             echo "❌ Host detection failed for ${{ matrix.scenario }}"
             echo "Expected: ${{ matrix.scenario }}"
