@@ -1,6 +1,6 @@
 # 🦎 KameleonCI
 
-[View the KameleonCI Drupal GovCon Presentation (PDF)](presentations/KameleonCI_%20One-size-fits-most%20GitHub%20Actions%20for%20Drupal.pdf)
+[View the KameleonCI Drupal GovCon Presentation (PDF)](presentations/KameleonCI_%20One-size-fits-most%20GitHub%20Actions%20for%20Drupal.pdf) or 📽️ [watch the presentation video](https://drupal.tv/events/drupal-govcon-2025/simplify-your-deployments-any-host-one-size-fits-most-github-actions)
 
 
 
