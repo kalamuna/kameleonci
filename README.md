@@ -1,5 +1,9 @@
 # 🦎 KameleonCI
 
+[View the KameleonCI Drupal GovCon Presentation (PDF)](presentations/KameleonCI_%20One-size-fits-most%20GitHub%20Actions%20for%20Drupal.pdf)
+
+
+
 A versatile GitHub Actions workflow for deploying Drupal projects to multiple hosting platforms.
 
 ## Quick Install
