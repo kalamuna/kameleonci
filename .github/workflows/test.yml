@@ -1,0 +1,72 @@
+name: Test KameleonCI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: YAML Lint
+        uses: ibiqlik/action-yamllint@2576378a8e339169678f9939646ee3ee325e845c # v3.1.1
+        with:
+          file_or_dir: .github/workflows/
+          config_file: .yamllint.yml
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install BATS
+        run: |
+          git clone https://github.com/bats-core/bats-core.git
+          cd bats-core
+          git checkout eb7f42f8d608ac693d7a4b67474f6714ea68cfc5 # v1.14.0
+          ./install.sh $HOME
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Run Tests
+        run: |
+          bats tests/
+
+  integration-test:
+    name: integration-test (${{ matrix.scenario }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - scenario: pantheon
+            deploy_repo: "ssh://codeserver.dev.site@codeserver.dev.site.drush.in:2222/~/repository.git"
+          - scenario: platform
+            deploy_repo: "project@git.region.platform.sh:project.git"
+          - scenario: acquia
+            deploy_repo: "project@git.acquia.com:project.git"
+          - scenario: Unknown host
+            deploy_repo: "git@github.com:org/repo.git"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Host Detection
+        env:
+          DEPLOY_REPO: ${{ matrix.deploy_repo }}
+          EXPECTED_HOST: ${{ matrix.scenario }}
+        run: |
+          source .github/scripts/workflow_functions.sh
+          echo "DEPLOY_REPO=$DEPLOY_REPO"
+          HOST=$(detect_host)
+          echo "HOST=$HOST"
+          if [[ "$HOST" != "$EXPECTED_HOST" ]]; then
+            echo "❌ Host detection failed for $EXPECTED_HOST"
+            echo "Expected: $EXPECTED_HOST"
+            echo "Got: $HOST"
+            exit 1
+          fi

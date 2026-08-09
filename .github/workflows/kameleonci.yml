@@ -42,6 +42,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+      # Checkout must run first: later steps source .github/scripts/workflow_functions.sh
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # KameleonCI ships as two files. Fail early with a clear message if the
+      # workflow file was updated without the companion script.
+      - name: Verify workflow functions script
+        run: |
+          if [ ! -f .github/scripts/workflow_functions.sh ]; then
+            echo "❌ .github/scripts/workflow_functions.sh is missing."
+            echo "➡️ KameleonCI now requires this script alongside kameleonci.yml."
+            echo "➡️ Re-run install.sh, or download it into .github/scripts/ from:"
+            echo "   https://raw.githubusercontent.com/kalamuna/kameleonci/main/.github/scripts/workflow_functions.sh"
+            exit 1
+          fi
+
       # --- Verify Required Git and SSH Variables ---
       - name: Verify Required Git and SSH Variables
         env:
@@ -98,32 +116,29 @@ jobs:
       # --- Host Detection: Set Sensible Defaults Based on Host ---
       - name: Detect Hosting Platform and Set Defaults
         run: |
-          # Detects Pantheon, Platform.sh, or Acquia and sets sensible defaults for each.
-          if [[ ${{ vars.DEPLOY_REPO }} == *"drush.in"* ]]; then
+          source .github/scripts/workflow_functions.sh
+          DEPLOY_REPO="${{ vars.DEPLOY_REPO }}"
+          HOST=$(detect_host)
+          echo "HOST=$HOST" >> $GITHUB_ENV
+          # Set other variables based on $HOST
+          if [ "$HOST" = "pantheon" ]; then
             echo "Pantheon site detected."
-            echo "HOST=pantheon" >> $GITHUB_ENV
             echo "CI_COMPOSER=false" >> $GITHUB_ENV
-            # pantheon-se/composer-node is installed and set to node 16 by default
             echo "CI_NODE=false" >> $GITHUB_ENV
             echo "TERMINUS=true" >> $GITHUB_ENV
             echo "REMOTE_PRIMARY=master" >> $GITHUB_ENV
             echo "MULTIDEV=true" >> $GITHUB_ENV
             echo "HOST_DOCROOT=web" >> $GITHUB_ENV
-          elif [[ ${{ vars.DEPLOY_REPO }} == *"platform.sh"* ]]; then
+          elif [ "$HOST" = "platform" ]; then
             echo "Platform.sh site detected."
-            echo "HOST=platform" >> $GITHUB_ENV
             echo "CI_COMPOSER=false" >> $GITHUB_ENV
             echo "CI_NODE=true" >> $GITHUB_ENV
             echo "TERMINUS=false" >> $GITHUB_ENV
-            # Platform.sh uses master by default, but this can be overridden if your project uses a different branch
             echo "REMOTE_PRIMARY=master" >> $GITHUB_ENV
-            # Platform.sh doesn't use Pantheon-style multidev environments
             echo "MULTIDEV=false" >> $GITHUB_ENV
-            # Platform.sh typically uses 'web' as docroot, but this can be overridden
             echo "HOST_DOCROOT=web" >> $GITHUB_ENV
-          elif [[ ${{ vars.DEPLOY_REPO }} == *"acquia"* ]]; then
+          elif [ "$HOST" = "acquia" ]; then
             echo "Acquia site detected."
-            echo "HOST=acquia" >> $GITHUB_ENV
             echo "CI_COMPOSER=true" >> $GITHUB_ENV
             echo "CI_NODE=true" >> $GITHUB_ENV
             echo "TERMINUS=false" >> $GITHUB_ENV
@@ -131,11 +146,11 @@ jobs:
             echo "MULTIDEV=false" >> $GITHUB_ENV
             echo "HOST_DOCROOT=docroot" >> $GITHUB_ENV
           else
-            echo "Host not automatically detected. You can still use this workflow by setting the necessary overrides in the 'Define Overrides' step:" && \
-            echo "- Set HOST to identify your platform" && \
-            echo "- Set HOST_DOCROOT to your Drupal docroot path" && \
-            echo "- Set REMOTE_PRIMARY to your host's primary branch name" && \
-            echo "- Configure other options as needed for your host" && \
+            echo "Host not automatically detected. You can still use this workflow by setting the necessary overrides in the 'Define Overrides' step:"
+            echo "- Set HOST to identify your platform"
+            echo "- Set HOST_DOCROOT to your Drupal docroot path"
+            echo "- Set REMOTE_PRIMARY to your host's primary branch name"
+            echo "- Configure other options as needed for your host"
             exit 1
           fi
 
@@ -157,21 +172,7 @@ jobs:
           BRANCH_NAME: ${{ steps.branch-name.outputs.current_branch }}
           IS_DEFAULT_BRANCH: ${{ steps.branch-name.outputs.is_default }}
         run: |
-          set_var() {
-            local var="$1"
-            local override_var="${var}_OVERRIDE"
-            local override="${!override_var}"
-            local envval="${!var}"
-            if [ ! -z "$override" ]; then
-              echo "$var override present: $override"
-              echo "$var=$override" >> $GITHUB_ENV
-              echo "$var=$override" >> $GITHUB_OUTPUT
-            else
-              echo "$var default present: $envval"
-              echo "$var=$envval" >> $GITHUB_ENV
-              echo "$var=$envval" >> $GITHUB_OUTPUT
-            fi
-          }
+          source .github/scripts/workflow_functions.sh
           set_var HOST
           set_var HOST_DOCROOT
           set_var CI_COMPOSER
@@ -217,11 +218,13 @@ jobs:
       # --- Validate Pantheon Multidev Branch Name ---
       - name: Validate Pantheon Multidev Branch Name
         if: steps.configure.outputs.HOST == 'pantheon' && github.event_name == 'pull_request'
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
         run: |
-          BRANCH_NAME="${{ github.head_ref }}"
+          source .github/scripts/workflow_functions.sh
           echo "Checking if '$BRANCH_NAME' is a valid Pantheon Multidev branch name..."
 
-          if [[ ! "$BRANCH_NAME" =~ ^[a-z0-9][a-z0-9-]{0,10}$ ]]; then
+          if ! validate_pantheon_multidev_name "$BRANCH_NAME"; then
             echo "❌ Invalid branch name '$BRANCH_NAME' for Pantheon Multidev."
             echo "Requirements:"
             echo "- All lowercase"
@@ -232,11 +235,6 @@ jobs:
           fi
 
           echo "✅ Valid Pantheon Multidev branch name: $BRANCH_NAME"
-
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       # Only build composer side theme if package.json and package.lock exist.
       - name: Node.js - Check for package.lock
