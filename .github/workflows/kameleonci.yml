@@ -48,6 +48,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      # KameleonCI ships as two files. Fail early with a clear message if the
+      # workflow file was updated without the companion script.
+      - name: Verify workflow functions script
+        run: |
+          if [ ! -f .github/scripts/workflow_functions.sh ]; then
+            echo "❌ .github/scripts/workflow_functions.sh is missing."
+            echo "➡️ KameleonCI now requires this script alongside kameleonci.yml."
+            echo "➡️ Re-run install.sh, or download it into .github/scripts/ from:"
+            echo "   https://raw.githubusercontent.com/kalamuna/kameleonci/main/.github/scripts/workflow_functions.sh"
+            exit 1
+          fi
+
       # --- Verify Required Git and SSH Variables ---
       - name: Verify Required Git and SSH Variables
         env:

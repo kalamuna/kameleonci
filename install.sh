@@ -21,7 +21,11 @@ download_file() {
     fi
 
     echo "📥 Downloading $description..."
-    curl -o "$destination" "$url"
+    # -f makes curl fail on HTTP errors instead of saving the error page as the file
+    if ! curl -fsSL -o "$destination" "$url"; then
+        echo "❌ Failed to download $description from $url"
+        exit 1
+    fi
     echo "✅ Downloaded $description to $destination"
 }
 
