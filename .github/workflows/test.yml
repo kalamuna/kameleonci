@@ -2,9 +2,9 @@ name: Test KameleonCI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   lint:
@@ -13,9 +13,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: YAML Lint
-        uses: ibiqlik/action-yamllint@v3
+        uses: ibiqlik/action-yamllint@2576378a8e339169678f9939646ee3ee325e845c # v3.1.1
         with:
-          file_or_dir: .github/workflows/kameleonci.yml
+          file_or_dir: .github/workflows/
           config_file: .yamllint.yml
 
   unit-tests:
@@ -25,7 +25,7 @@ jobs:
 
       - name: Install BATS
         run: |
-          git clone https://github.com/bats-core/bats-core.git
+          git clone --depth 1 --branch v1.14.0 https://github.com/bats-core/bats-core.git
           cd bats-core
           ./install.sh $HOME
           echo "$HOME/bin" >> $GITHUB_PATH
@@ -35,59 +35,34 @@ jobs:
           bats tests/
 
   integration-test:
+    name: integration-test (${{ matrix.scenario }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        scenario: ['pantheon', 'platform', 'acquia', 'Unknown host']
+        include:
+          - scenario: pantheon
+            deploy_repo: "ssh://codeserver.dev.site@codeserver.dev.site.drush.in:2222/~/repository.git"
+          - scenario: platform
+            deploy_repo: "project@git.region.platform.sh:project.git"
+          - scenario: acquia
+            deploy_repo: "project@git.acquia.com:project.git"
+          - scenario: Unknown host
+            deploy_repo: "git@github.com:org/repo.git"
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Test Environment
-        run: |
-          # Create mock test repository
-          mkdir -p test-repo
-          cd test-repo
-          git init
-
-          # Set up based on scenario
-          case "${{ matrix.scenario }}" in
-            pantheon)
-              echo "Setting up Pantheon scenario"
-              export DEPLOY_REPO="ssh://codeserver.dev.site@codeserver.dev.site.drush.in:2222/~/repository.git"
-              ;;
-            platform)
-              echo "Setting up Platform.sh scenario"
-              export DEPLOY_REPO="project@git.region.platform.sh:project.git"
-              ;;
-            acquia)
-              echo "Setting up Acquia scenario"
-              export DEPLOY_REPO="project@git.acquia.com:project.git"
-              ;;
-            "Unknown host")
-              echo "Setting up Unknown scenario"
-              export DEPLOY_REPO="git@github.com:org/repo.git"
-              ;;
-          esac
-
-          # Persist DEPLOY_REPO for next step
-          echo "DEPLOY_REPO=$DEPLOY_REPO" >> $GITHUB_ENV
-
-          # Set common test variables
-          echo "GIT_NAME=Test User" >> $GITHUB_ENV
-          echo "GIT_EMAIL=test@example.com" >> $GITHUB_ENV
-          echo "SSH_CONFIG=Host *" >> $GITHUB_ENV
-
       - name: Verify Host Detection
+        env:
+          DEPLOY_REPO: ${{ matrix.deploy_repo }}
+          EXPECTED_HOST: ${{ matrix.scenario }}
         run: |
           source .github/scripts/workflow_functions.sh
           echo "DEPLOY_REPO=$DEPLOY_REPO"
           HOST=$(detect_host)
           echo "HOST=$HOST"
-          if [[ "$HOST" != "${{ matrix.scenario }}" ]]; then
-            echo "❌ Host detection failed for ${{ matrix.scenario }}"
-            echo "Expected: ${{ matrix.scenario }}"
+          if [[ "$HOST" != "$EXPECTED_HOST" ]]; then
+            echo "❌ Host detection failed for $EXPECTED_HOST"
+            echo "Expected: $EXPECTED_HOST"
             echo "Got: $HOST"
             exit 1
           fi
-      # End of integration-test job
-# End of jobs
