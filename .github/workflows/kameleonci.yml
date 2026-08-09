@@ -42,6 +42,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+      # Checkout must run first: later steps source .github/scripts/workflow_functions.sh
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
       # --- Verify Required Git and SSH Variables ---
       - name: Verify Required Git and SSH Variables
         env:
@@ -154,21 +160,7 @@ jobs:
           BRANCH_NAME: ${{ steps.branch-name.outputs.current_branch }}
           IS_DEFAULT_BRANCH: ${{ steps.branch-name.outputs.is_default }}
         run: |
-          set_var() {
-            local var="$1"
-            local override_var="${var}_OVERRIDE"
-            local override="${!override_var}"
-            local envval="${!var}"
-            if [ ! -z "$override" ]; then
-              echo "$var override present: $override"
-              echo "$var=$override" >> $GITHUB_ENV
-              echo "$var=$override" >> $GITHUB_OUTPUT
-            else
-              echo "$var default present: $envval"
-              echo "$var=$envval" >> $GITHUB_ENV
-              echo "$var=$envval" >> $GITHUB_OUTPUT
-            fi
-          }
+          source .github/scripts/workflow_functions.sh
           set_var HOST
           set_var HOST_DOCROOT
           set_var CI_COMPOSER
@@ -214,11 +206,13 @@ jobs:
       # --- Validate Pantheon Multidev Branch Name ---
       - name: Validate Pantheon Multidev Branch Name
         if: steps.configure.outputs.HOST == 'pantheon' && github.event_name == 'pull_request'
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
         run: |
-          BRANCH_NAME="${{ github.head_ref }}"
+          source .github/scripts/workflow_functions.sh
           echo "Checking if '$BRANCH_NAME' is a valid Pantheon Multidev branch name..."
 
-          if [[ ! "$BRANCH_NAME" =~ ^[a-z0-9][a-z0-9-]{0,10}$ ]]; then
+          if ! validate_pantheon_multidev_name "$BRANCH_NAME"; then
             echo "❌ Invalid branch name '$BRANCH_NAME' for Pantheon Multidev."
             echo "Requirements:"
             echo "- All lowercase"
@@ -229,11 +223,6 @@ jobs:
           fi
 
           echo "✅ Valid Pantheon Multidev branch name: $BRANCH_NAME"
-
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       # Only build composer side theme if package.json and package.lock exist.
       - name: Node.js - Check for package.lock

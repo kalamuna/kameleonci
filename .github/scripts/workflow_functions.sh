@@ -24,16 +24,20 @@ validate_pantheon_multidev_name() {
     return 0
 }
 
+# Resolves a variable from its _OVERRIDE counterpart or its current value,
+# and publishes it to both GITHUB_ENV and GITHUB_OUTPUT.
 set_var() {
     local var="$1"
     local override_var="${var}_OVERRIDE"
     local override="${!override_var}"
     local envval="${!var}"
     if [ ! -z "$override" ]; then
-        echo "$var=$override"
-        return 0
+        echo "$var override present: $override"
+        echo "$var=$override" >> "$GITHUB_ENV"
+        echo "$var=$override" >> "$GITHUB_OUTPUT"
     else
-        echo "$var=$envval"
-        return 0
+        echo "$var default present: $envval"
+        echo "$var=$envval" >> "$GITHUB_ENV"
+        echo "$var=$envval" >> "$GITHUB_OUTPUT"
     fi
 }
